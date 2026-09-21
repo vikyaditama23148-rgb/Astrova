@@ -1,0 +1,39 @@
+/* Animasi Tata Surya di halaman Home */
+.solar .orbit { transform-box: view-box; transform-origin: 50% 50%; animation: orbit-spin linear infinite; animation-duration: var(--d, 60s); }
+.solar .orbit:hover { animation-play-state: paused; }
+.solar[data-paused="true"] .orbit, .solar[data-run="false"] .orbit, .solar[data-run="false"] .sun-glow { animation-play-state: paused; }
+/* Bila perangkat meminta "kurangi gerakan" tetapi anak menekan tombol Putar: tetap jalan (ada tombol Jeda) */
+.solar[data-force="true"] .orbit { animation-duration: var(--d, 60s) !important; animation-iteration-count: infinite !important; }
+.solar[data-force="true"] .sun-glow { animation-duration: 3.2s !important; animation-iteration-count: infinite !important; }
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+
+.solar .sun-glow { transform-box: fill-box; transform-origin: center; animation: sun-pulse 3.2s ease-in-out infinite; }
+@keyframes sun-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.14); opacity: 0.85; } }
+
+.solar .planet { cursor: pointer; outline: none; }
+.solar .planet:focus-visible .focus-ring { opacity: 1; }
+.solar .focus-ring { opacity: 0; }
+.solar .sel-ring { animation: sel-dash 1.4s linear infinite; }
+@keyframes sel-dash { to { stroke-dashoffset: -24; } }
+
+.comet {
+  position: absolute; top: 6%; left: -10%; width: 130px; height: 3px; border-radius: 3px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95)); filter: drop-shadow(0 0 6px #fff);
+  opacity: 0; animation: comet-fly 12s ease-in infinite 3s;
+}
+@keyframes comet-fly {
+  0% { transform: translate(0, 0) rotate(24deg); opacity: 0; }
+  4% { opacity: 1; }
+  22% { transform: translate(720px, 320px) rotate(24deg); opacity: 0; }
+  100% { transform: translate(720px, 320px) rotate(24deg); opacity: 0; }
+}
+.shooting-star {
+  position: absolute; width: 110px; height: 2px; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, #fff); animation: shoot 9s ease-in infinite;
+}
+@keyframes shoot {
+  0% { transform: translate(0, 0) rotate(20deg); opacity: 0; }
+  3% { opacity: 0.9; }
+  12% { transform: translate(420px, 150px) rotate(20deg); opacity: 0; }
+  100% { transform: translate(420px, 150px) rotate(20deg); opacity: 0; }
+}

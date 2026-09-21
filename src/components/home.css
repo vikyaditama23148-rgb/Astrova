@@ -1,0 +1,11 @@
+/* Efek khusus halaman Home */
+.medal { position: relative; overflow: hidden; }
+.medal::after {
+  content: ""; position: absolute; inset: -20%; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.6) 50%, transparent 60%);
+  transform: translateX(-130%); animation: medal-shine 4.5s ease-in-out infinite;
+}
+@keyframes medal-shine { 0%, 55% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+.badge-card:hover .medal-wrap { animation: medal-bob 0.9s ease-in-out infinite; }
+@keyframes medal-bob { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-6px) rotate(-6deg); } 75% { transform: translateY(-3px) rotate(6deg); } }
+.nebula { position: fixed; border-radius: 9999px; pointer-events: none; z-index: 0; }
