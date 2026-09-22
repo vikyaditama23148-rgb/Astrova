@@ -8,7 +8,7 @@ import StepsSection from '@/components/home/StepsSection';
 import ParallaxStars from '@/components/ParallaxStars';
 import Reveal from '@/components/Reveal';
 import RobotMascot from '@/components/RobotMascot';
-import SolarSystemHero from '@/components/SolarSystemHero';
+import SolarSystem3D from '@/components/solar3d/SolarSystem3D';
 
 export default function Landing() {
   return (
@@ -47,7 +47,7 @@ export default function Landing() {
           </div>
 
           <Reveal immediate delay={0.2} y={0} className="order-1 pb-14 lg:order-2">
-            <SolarSystemHero />
+            <SolarSystem3D />
           </Reveal>
         </section>
 
