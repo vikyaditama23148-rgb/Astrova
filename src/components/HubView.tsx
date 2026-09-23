@@ -1,6 +1,7 @@
 'use client';
 
 import HubHero, { type Spotlight } from '@/components/hub/HubHero';
+import ObservatoriumBanner from '@/components/hub/ObservatoriumBanner';
 import HubBadges from '@/components/hub/HubBadges';
 import MissionPath from '@/components/hub/MissionPath';
 import { starsFromScore } from '@/lib/stars';
@@ -35,6 +36,7 @@ export default function HubView({ name, preDone, postDone, postOpen, modules, ba
   return (
     <div className="relative mx-auto w-full max-w-[1100px] px-4 pb-28 sm:px-6">
       <HubHero name={name} totalStars={totalStars} badgeCount={badgeCount} totalBadges={badges.length} spotlight={spotlight} />
+      <ObservatoriumBanner />
       <MissionPath preDone={preDone} modules={modules} postOpen={postOpen} postDone={postDone} />
       <HubBadges badges={badges} />
     </div>
