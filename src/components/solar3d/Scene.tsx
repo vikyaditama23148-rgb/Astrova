@@ -5,7 +5,9 @@ import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { useReducedMotion } from 'framer-motion';
-import { FACT_3D, PLANETS_3D, type P3D } from '@/components/solar3d/data';
+import { PLANETS_3D, type P3D } from '@/components/solar3d/data';
+import { getPlanetTexture } from '@/components/solar3d/textures';
+import Atmosphere from '@/components/solar3d/Atmosphere';
 
 /** Cincin Saturnus: sebuah torus datar dan tipis. */
 function Rings({ size }: { size: number }) {
@@ -35,6 +37,8 @@ function Planet({ p, active, selected, running, onSelect }: { p: P3D; active: bo
   const angle = useRef(Math.random() * Math.PI * 2);
   const groupRef = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
+  const texture = useMemo(() => getPlanetTexture(p.id), [p.id]);
+  const rough = p.id === 'saturnus' || p.id === 'jupiter' ? 0.55 : p.id === 'uranus' || p.id === 'neptunus' ? 0.4 : 0.85;
 
   useFrame((_, delta) => {
     if (running) angle.current += delta * p.speed * 0.35;
@@ -52,9 +56,10 @@ function Planet({ p, active, selected, running, onSelect }: { p: P3D; active: bo
           onPointerOut={() => { setHover(false); document.body.style.cursor = 'auto'; }}
           scale={hover || selected ? 1.18 : 1}
         >
-          <sphereGeometry args={[p.size, 32, 32]} />
-          <meshStandardMaterial color={p.color} roughness={0.75} metalness={0.05} emissive={p.color} emissiveIntensity={selected ? 0.35 : hover ? 0.18 : 0} />
+          <sphereGeometry args={[p.size, 48, 48]} />
+          <meshStandardMaterial map={texture} roughness={rough} metalness={0.04} emissive={p.color} emissiveIntensity={selected ? 0.3 : hover ? 0.15 : 0.03} />
         </mesh>
+        <Atmosphere size={p.size} color={p.color} opacity={p.id === 'bumi' ? 0.22 : 0.12} />
         {p.rings && <Rings size={p.size} />}
         {(hover || selected) && (
           <Html center distanceFactor={10} style={{ pointerEvents: 'none' }}>
@@ -73,8 +78,8 @@ function Sun({ selected, onSelect }: { selected: boolean; onSelect: (id: string)
     <group>
       <pointLight color="#fff3b0" intensity={220} distance={60} decay={1.6} />
       <mesh ref={ref} onClick={(e) => { e.stopPropagation(); onSelect('matahari'); }} scale={selected ? 1.08 : 1}>
-        <sphereGeometry args={[1.7, 40, 40]} />
-        <meshBasicMaterial color="#ffc93c" />
+        <sphereGeometry args={[1.7, 64, 64]} />
+        <meshBasicMaterial map={useMemo(() => getPlanetTexture('matahari'), [])} />
       </mesh>
       <mesh scale={2.5}><sphereGeometry args={[1.7, 24, 24]} /><meshBasicMaterial color="#ffb300" transparent opacity={0.18} /></mesh>
     </group>
