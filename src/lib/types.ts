@@ -38,7 +38,8 @@ export interface LearnCard {
 export type ExploreConfig =
   | { type: 'planet_viewer'; planets: string[]; min_seconds?: number; instruction?: string }
   | { type: 'day_night'; min_seconds?: number; instruction?: string }
-  | { type: 'space_calculator'; planets?: string[]; min_seconds?: number; instruction?: string };
+  | { type: 'space_calculator'; planets?: string[]; min_seconds?: number; instruction?: string }
+  | { type: 'moon_phases'; min_seconds?: number; instruction?: string };
 
 export interface ModuleRow {
   id: string;

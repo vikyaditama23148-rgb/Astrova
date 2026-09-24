@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, Reorder } from 'framer-motion';
 import DayNightSim from '@/components/explore/DayNightSim';
+import MoonPhaseSim from '@/components/explore/MoonPhaseSim';
 import PlanetCanvas from '@/components/PlanetCanvas';
 import type { PublicQuestion } from '@/lib/types';
 
@@ -47,6 +48,9 @@ export function SimulationQuestion({ q, setAnswer, disabled, avatar }: QProps) {
   useEffect(() => { setAnswer({ value: v }); }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
   if (q.data.sim === 'day_night') {
     return <DayNightSim value={v} onChange={(x) => !disabled && setV(x)} avatar={avatar} quiet min={sl.min} max={sl.max} step={sl.step} />;
+  }
+  if (q.data.sim === 'moon_phases') {
+    return <MoonPhaseSim value={v} onChange={(x) => !disabled && setV(x)} quiet min={sl.min} max={sl.max} step={sl.step} />;
   }
   return (
     <div className="card-night p-5">

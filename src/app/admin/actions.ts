@@ -118,6 +118,7 @@ const moduleSchema = z.object({
     z.object({ type: z.literal('planet_viewer'), planets: z.array(z.string()).min(1), min_seconds: z.number().optional(), instruction: z.string().optional() }),
     z.object({ type: z.literal('day_night'), min_seconds: z.number().optional(), instruction: z.string().optional() }),
     z.object({ type: z.literal('space_calculator'), planets: z.array(z.string()).optional(), min_seconds: z.number().optional(), instruction: z.string().optional() }),
+    z.object({ type: z.literal('moon_phases'), min_seconds: z.number().optional(), instruction: z.string().optional() }),
   ]),
 });
 

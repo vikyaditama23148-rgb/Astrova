@@ -11,6 +11,7 @@ const DEFAULT_EXPLORE: Record<string, ExploreConfig> = {
   planet_viewer: { type: 'planet_viewer', planets: ['bumi', 'mars'], min_seconds: 20, instruction: 'Geser planet dan ketuk titik kuning untuk fakta!' },
   day_night: { type: 'day_night', min_seconds: 25, instruction: 'Geser slider jam dan perhatikan perubahan siang dan malam.' },
   space_calculator: { type: 'space_calculator', min_seconds: 25, instruction: 'Masukkan berat dan umurmu, lalu bandingkan antarplanet.' },
+  moon_phases: { type: 'moon_phases', min_seconds: 25, instruction: 'Geser posisi Bulan dan amati perubahan fase serta kapan gerhana bisa terjadi!' },
 };
 
 function Upload({ onDone }: { onDone: (url: string) => void }) {
