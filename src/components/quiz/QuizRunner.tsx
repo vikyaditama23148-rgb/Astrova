@@ -123,7 +123,14 @@ export default function QuizRunner({ mode, title, questions, initialStates, avat
             <p className="text-lg text-indigo-100">{mode === 'pre_test' ? 'Sekarang semua modul terbuka. Selamat menjelajah!' : 'Terima kasih sudah berjuang sampai akhir, Kapten!'}</p>
           </>
         )}
-        <Link href={backHref} className="btn btn-primary">Kembali ke Markas</Link>
+        {mode === 'post_test' ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Link href="/laporan" className="btn btn-primary">📊 Lihat Laporan Belajarmu</Link>
+            <Link href={backHref} className="btn btn-ghost">Kembali ke Markas</Link>
+          </div>
+        ) : (
+          <Link href={backHref} className="btn btn-primary">Kembali ke Markas</Link>
+        )}
       </motion.div>
     );
   }

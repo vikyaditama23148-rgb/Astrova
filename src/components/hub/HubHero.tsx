@@ -102,6 +102,11 @@ export default function HubHero({ name, totalStars, badgeCount, totalBadges, spo
                 {cta} <Rocket size={20} />
               </Link>
             )}
+            {spotlight.kind === 'done' && (
+              <Link href="/laporan" className="btn btn-primary mt-6 w-full !min-h-14 !text-lg">
+                📊 Lihat Laporan Belajarmu
+              </Link>
+            )}
             {planetId && (
               <button type="button" onClick={() => setRun((r) => !r)} aria-pressed={run} className="btn btn-ghost btn-sm mt-3 !min-h-9">
                 {run ? <><Pause size={14} /> Jeda putaran</> : <><Play size={14} /> Putar planet</>}
