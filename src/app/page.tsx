@@ -79,6 +79,8 @@ export default function Landing() {
 
       <footer className="relative z-10 border-t border-white/10 px-4 py-6 text-center text-sm text-on-surface-variant">
         © Astrova • Media pembelajaran interaktif IPAS Kelas V SD • Kurikulum Merdeka
+        <span className="mx-2">·</span>
+        <Link href="/tentang" className="underline-offset-4 hover:underline">Tentang Pengembang</Link>
       </footer>
       <HomeTabBar />
     </div>
