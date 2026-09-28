@@ -21,7 +21,7 @@ const DEV = {
     'Halo, penjelajah cilik dan Bapak/Ibu Guru! Saya Viky, perancang di balik Astrova. Berawal dari keinginan membuat materi Tata Surya IPAS lebih mudah dipahami dan menyenangkan bagi siswa kelas V SD, saya membangun laboratorium antariksa virtual ini sebagai tugas akhir skripsi saya. Semoga petualangan bersama AstroBot membuat sains terasa semenyenangkan bermain di taman hiburan galaksi!',
   email: 'vikyaditama23148@gmail.com', // TODO: mis. 'nama@email.com' — kosongkan untuk sembunyikan tombol
   github: 'https://github.com/vikyaditama23148-rgb', // TODO: mis. 'https://github.com/username'
-  linkedin: 'https://www.linkedin.com/in/viky-aditama-55461b2b7', // TODO
+  linkedin: 'https://www.linkedin.com/in/viky-aditama-55461b2b7/', // TODO
   instagram: 'https://instagram.com/vkyadtm', // TODO
   repoUrl: '', // TODO: tautan repositori (kalau ingin publik)
 };
@@ -55,8 +55,18 @@ function ContactButton({ href, Icon, label, primary = false }: { href: string; I
 
 export default function DeveloperPage() {
   const hasContact = DEV.email || DEV.github || DEV.linkedin || DEV.instagram;
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: DEV.name,
+    jobTitle: DEV.role,
+    description: DEV.quote,
+    ...(DEV.email ? { email: DEV.email } : {}),
+    sameAs: [DEV.github, DEV.linkedin, DEV.instagram].filter(Boolean),
+  };
   return (
     <div className="space-bg overflow-x-clip">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }} />
       <div className="pointer-events-none fixed inset-0 z-0"><ParallaxStars /></div>
       <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:py-5">
         <span className="flex items-center gap-2 font-display text-xl font-semibold sm:text-2xl">
@@ -77,7 +87,7 @@ export default function DeveloperPage() {
               <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-indigo-100/90 md:mx-0">{DEV.quote}</p>
               {hasContact && (
                 <div className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
-                  <ContactButton href={DEV.email ? `mailto:${DEV.email}` : ''} Icon={Mail} label={DEV.email} />
+                  <ContactButton href={DEV.email ? `mailto:${DEV.email}` : 'vikyaditama23148@gmail.com'} Icon={Mail} label={DEV.email} />
                   <ContactButton href={DEV.github} Icon={Github} label="GitHub" />
                   <ContactButton href={DEV.linkedin} Icon={Linkedin} label="LinkedIn" />
                   <ContactButton href={DEV.instagram} Icon={Instagram} label="Instagram" />
