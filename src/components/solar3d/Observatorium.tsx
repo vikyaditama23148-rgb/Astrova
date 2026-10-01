@@ -2,11 +2,13 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Orbit, Pause, Play, RotateCw } from 'lucide-react';
 import PlanetCanvas from '@/components/PlanetCanvas';
 import { PLANETS_3D } from '@/components/solar3d/data';
 import { getPlanet, PLANETS, type PlanetHotspot } from '@/lib/planets';
+import GraphicsSettings from '@/graphics/GraphicsSettings';
+import { useGraphicsQuality } from '@/graphics/useGraphicsQuality';
 
 const Scene = dynamic(() => import('@/components/solar3d/ObservatoriumScene'), {
   ssr: false,
@@ -23,6 +25,8 @@ export default function Observatorium() {
   const [running, setRunning] = useState(true);
   const [activeHotspot, setActiveHotspot] = useState<PlanetHotspot | null>(null);
   const [panelOpen, setPanelOpen] = useState(true); // panel info bisa dibuka/ditutup, penting di layar HP yang sempit
+  const { quality, setQuality, isAuto, ready } = useGraphicsQuality();
+  const reduceMotion = !!useReducedMotion();
   const controlsRef = useRef<any>(null);
 
   const info = focusId ? getPlanet(focusId) : null;
@@ -38,10 +42,13 @@ export default function Observatorium() {
   return (
     <div className="relative h-[calc(100dvh-5rem)] w-full overflow-hidden bg-gradient-to-b from-[#070b1f] to-[#131a45]">
       <Suspense fallback={<div className="grid h-full place-items-center text-indigo-200"><Loader2 className="animate-spin" size={30} /></div>}>
-        <Scene
-          focusId={focusId} showOrbit={showOrbit} running={running} activeHotspot={activeHotspot?.id ?? null}
-          onPickPlanet={pick} onHotspot={setActiveHotspot} controlsRef={controlsRef}
-        />
+        {ready && (
+          <Scene
+            focusId={focusId} showOrbit={showOrbit} running={running} activeHotspot={activeHotspot?.id ?? null}
+            onPickPlanet={pick} onHotspot={setActiveHotspot} controlsRef={controlsRef}
+            quality={quality} reduceMotion={reduceMotion} showStats={process.env.NODE_ENV === 'development'}
+          />
+        )}
       </Suspense>
 
       {/* Bilah atas */}
@@ -50,6 +57,7 @@ export default function Observatorium() {
           🔭 Observatorium 3D
         </span>
         <div className="pointer-events-auto flex items-center gap-2">
+          <GraphicsSettings quality={quality} onChange={setQuality} isAuto={isAuto} />
           <button type="button" onClick={() => setRunning((r) => !r)} aria-pressed={running} className="btn btn-ghost btn-sm !min-h-9 !bg-black/45 backdrop-blur-sm">
             {running ? <><Pause size={15} /> Jeda</> : <><Play size={15} /> Putar</>}
           </button>

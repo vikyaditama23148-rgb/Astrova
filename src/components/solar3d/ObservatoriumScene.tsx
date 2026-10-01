@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Html, OrbitControls, Stars } from '@react-three/drei';
+import { Html, OrbitControls, Stars, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import Atmosphere from '@/components/solar3d/Atmosphere';
 import { PLANETS_3D, type P3D } from '@/components/solar3d/data';
 import { getPlanetTexture } from '@/components/solar3d/textures';
 import { getPlanet, type PlanetHotspot } from '@/lib/planets';
+import { getGraphicsProfile, type GraphicsQuality } from '@/graphics/graphicsConfig';
 
 const DEG = Math.PI / 180;
 /** Ubah lintang/bujur (derajat) menjadi posisi 3D di permukaan bola. */
@@ -20,14 +21,14 @@ function latLonToVec3(lat: number, lon: number, r: number): [number, number, num
 /** Jarak kamera "pas" untuk tiap planet — planet kecil didekati lebih rapat, planet besar diberi ruang lebih. */
 export function defaultDistance(p: P3D) { return p.size * 3.3 + 1.6; }
 
-interface FocusState { id: string | null; showOrbit: boolean; running: boolean; onHotspot: (h: PlanetHotspot | null) => void; activeHotspot: string | null }
+interface FocusState { id: string | null; showOrbit: boolean; running: boolean; onHotspot: (h: PlanetHotspot | null) => void; activeHotspot: string | null; profile: ReturnType<typeof getGraphicsProfile> }
 
-function RingPath({ radius }: { radius: number }) {
+function RingPath({ radius, segments }: { radius: number; segments: number }) {
   const geo = useMemo(() => {
     const pts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 128; i++) { const a = (i / 128) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)); }
+    for (let i = 0; i <= segments; i++) { const a = (i / segments) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)); }
     return new THREE.BufferGeometry().setFromPoints(pts);
-  }, [radius]);
+  }, [radius, segments]);
   return <primitive object={new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color: '#9b8f7a', transparent: true, opacity: 0.3 }))} />;
 }
 
@@ -66,10 +67,10 @@ function Body({ p, focus, onPick, worldRef }: { p: P3D; focus: FocusState; onPic
           ref={spinRef}
           onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onPick(p.id, worldGroup.current!); }}
         >
-          <sphereGeometry args={[p.size, isFocused ? 72 : 40, isFocused ? 72 : 40]} />
+          <sphereGeometry args={[p.size, isFocused ? focus.profile.planetSegments.near : focus.profile.planetSegments.far, isFocused ? focus.profile.planetSegments.near : focus.profile.planetSegments.far]} />
           <meshStandardMaterial map={texture} roughness={rough} metalness={0.04} emissive={p.color} emissiveIntensity={isFocused ? 0.16 : 0.04} />
         </mesh>
-        <Atmosphere size={p.size} color={p.color} opacity={p.id === 'bumi' ? 0.24 : 0.13} />
+        {focus.profile.atmosphere && <Atmosphere size={p.size} color={p.color} opacity={(p.id === 'bumi' ? 0.24 : 0.13) * focus.profile.atmosphereBoost} />}
         {p.rings && <SaturnRings size={p.size} />}
 
         {isFocused && info.hotspots.map((h) => {
@@ -92,7 +93,7 @@ function Body({ p, focus, onPick, worldRef }: { p: P3D; focus: FocusState; onPic
   );
 }
 
-function Sun({ onPick }: { onPick: (id: string, world: THREE.Object3D) => void }) {
+function Sun({ onPick, segments }: { onPick: (id: string, world: THREE.Object3D) => void; segments: number }) {
   const ref = useRef<THREE.Mesh>(null);
   const group = useRef<THREE.Group>(null);
   const texture = useMemo(() => getPlanetTexture('matahari'), []);
@@ -101,7 +102,7 @@ function Sun({ onPick }: { onPick: (id: string, world: THREE.Object3D) => void }
     <group ref={group}>
       <pointLight color="#fff3b0" intensity={260} distance={70} decay={1.6} />
       <mesh ref={ref} onClick={(e) => { e.stopPropagation(); onPick('matahari', group.current!); }}>
-        <sphereGeometry args={[1.7, 64, 64]} />
+        <sphereGeometry args={[1.7, segments, segments]} />
         <meshBasicMaterial map={texture} />
       </mesh>
       <mesh scale={2.4}><sphereGeometry args={[1.7, 24, 24]} /><meshBasicMaterial color="#ffb300" transparent opacity={0.16} /></mesh>
@@ -110,23 +111,27 @@ function Sun({ onPick }: { onPick: (id: string, world: THREE.Object3D) => void }
 }
 
 /** Kamera bebas: terbang halus ke target saat memilih planet, lalu OrbitControls bebas di sekitarnya. */
-function CameraRig({ target, distance, controlsRef }: { target: THREE.Object3D | null; distance: number; controlsRef: React.RefObject<any> }) {
+function CameraRig({ target, distance, controlsRef, reduceMotion }: { target: THREE.Object3D | null; distance: number; controlsRef: React.RefObject<any>; reduceMotion: boolean }) {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3());
   const lookAt = useRef(new THREE.Vector3(0, 0, 0));
+  // Siswa dengan "kurangi gerakan" diaktifkan: pindah kamera langsung (tanpa easing
+  // panjang) supaya tidak ada gerakan lambat berkepanjangan yang bisa memicu pusing.
+  const camLerp = reduceMotion ? 1 : 0.05;
+  const lookLerp = reduceMotion ? 1 : 0.06;
 
   useFrame(() => {
     const controls = controlsRef.current;
     if (!controls) return;
     let goalLook = new THREE.Vector3(0, 0, 0);
     if (target) target.getWorldPosition(goalLook);
-    lookAt.current.lerp(goalLook, 0.06);
+    lookAt.current.lerp(goalLook, lookLerp);
 
     if (target) {
       const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
       if (dir.lengthSq() < 0.001) dir.set(0.4, 0.25, 1).normalize();
       desired.current.copy(goalLook).addScaledVector(dir, distance);
-      camera.position.lerp(desired.current, 0.05);
+      camera.position.lerp(desired.current, camLerp);
     }
     controls.target.copy(lookAt.current);
     controls.update();
@@ -158,28 +163,31 @@ function FitOverview({ active }: { active: boolean }) {
 export interface ObservatoriumSceneProps {
   focusId: string | null; showOrbit: boolean; running: boolean; activeHotspot: string | null;
   onPickPlanet: (id: string) => void; onHotspot: (h: PlanetHotspot | null) => void; controlsRef: React.RefObject<any>;
+  quality: GraphicsQuality; reduceMotion: boolean; showStats?: boolean;
 }
 
-export default function ObservatoriumScene({ focusId, showOrbit, running, activeHotspot, onPickPlanet, onHotspot, controlsRef }: ObservatoriumSceneProps) {
+export default function ObservatoriumScene({ focusId, showOrbit, running, activeHotspot, onPickPlanet, onHotspot, controlsRef, quality, reduceMotion, showStats }: ObservatoriumSceneProps) {
   const worldObjs = useRef<Record<string, THREE.Object3D | null>>({});
   const sunGroup = useRef<THREE.Group | null>(null);
+  const profile = useMemo(() => getGraphicsProfile(quality), [quality]);
 
   const setWorld = (id: string, o: THREE.Object3D | null) => { worldObjs.current[id] = o; };
   const focusObj = focusId === 'matahari' ? sunGroup.current : focusId ? worldObjs.current[focusId] ?? null : null;
   const focusP = PLANETS_3D.find((p) => p.id === focusId);
   const distance = focusId === 'matahari' ? 6 : focusP ? defaultDistance(focusP) : 22;
 
-  const focus: FocusState = { id: focusId, showOrbit, running, onHotspot, activeHotspot };
+  const focus: FocusState = { id: focusId, showOrbit, running, onHotspot, activeHotspot, profile };
 
   return (
-    <Canvas dpr={[1, 1.6]} camera={{ position: [0, 6, 14], fov: 50 }} gl={{ antialias: true, alpha: true }}>
+    <Canvas dpr={profile.dpr} camera={{ position: [0, 6, 14], fov: 50 }} gl={{ antialias: profile.antialias, alpha: true }}>
+      {showStats && <Stats className="!absolute !left-2 !top-2" />}
       <ambientLight intensity={0.35} />
-      <Stars radius={100} depth={50} count={2600} factor={2.2} saturation={0} fade speed={0.35} />
-      <group ref={(g) => { sunGroup.current = g; }}><Sun onPick={onPickPlanet} /></group>
-      {PLANETS_3D.map((p) => <RingPath key={`r-${p.id}`} radius={p.distance} />)}
+      <Stars radius={100} depth={50} count={profile.stars.count} factor={profile.stars.factor} saturation={0} fade speed={reduceMotion ? 0 : 0.35} />
+      <group ref={(g) => { sunGroup.current = g; }}><Sun onPick={onPickPlanet} segments={profile.sunSegments} /></group>
+      {PLANETS_3D.map((p) => <RingPath key={`r-${p.id}`} radius={p.distance} segments={profile.orbitLineSegments} />)}
       {PLANETS_3D.map((p) => <Body key={p.id} p={p} focus={focus} onPick={onPickPlanet} worldRef={setWorld} />)}
       <FitOverview active={!focusId} />
-      <CameraRig target={focusObj} distance={distance} controlsRef={controlsRef} />
+      <CameraRig target={focusObj} distance={distance} controlsRef={controlsRef} reduceMotion={reduceMotion} />
       <OrbitControls ref={controlsRef} enablePan={!focusId} enableZoom minDistance={2.5} maxDistance={45} rotateSpeed={0.55} zoomSpeed={0.7} makeDefault />
     </Canvas>
   );
