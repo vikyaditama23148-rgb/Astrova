@@ -134,3 +134,34 @@ export function getTexture(p: PlanetInfo): Uint8ClampedArray {
   cache.set(p.id, data);
   return data;
 }
+
+const cloudCache = new Map<string, Uint8ClampedArray>();
+
+/**
+ * Lapisan awan Bumi TERPISAH dari tekstur permukaan — supaya bisa dipasang
+ * sebagai mesh sendiri yang berputar perlahan dengan kecepatan berbeda dari
+ * permukaan (efek awan bergerak). Hanya RGBA putih dengan alpha = kerapatan
+ * awan; dipakai di Observatorium mode Normal/High untuk membedakan dari Easy.
+ */
+export function getCloudAlphaTexture(seed = 11): Uint8ClampedArray {
+  const key = String(seed);
+  const hit = cloudCache.get(key);
+  if (hit) return hit;
+  const data = new Uint8ClampedArray(TEX_W * TEX_H * 4);
+  for (let j = 0; j < TEX_H; j++) {
+    const lat = Math.PI / 2 - ((j + 0.5) / TEX_H) * Math.PI;
+    const cl = Math.cos(lat), y = Math.sin(lat);
+    for (let i = 0; i < TEX_W; i++) {
+      const lon = ((i + 0.5) / TEX_W) * 2 * Math.PI - Math.PI;
+      const x = cl * Math.sin(lon), z = cl * Math.cos(lon);
+      const n = fbm(x * 2.6 + seed, y * 2.6, z * 2.6 + seed, 5);
+      const wisps = fbm(x * 7 + seed * 2, y * 7, z * 7 + seed * 2, 3);
+      const density = smoothstep(0.52, 0.78, n) * 0.75 + smoothstep(0.6, 0.85, wisps) * 0.35;
+      const k = (j * TEX_W + i) * 4;
+      data[k] = 255; data[k + 1] = 255; data[k + 2] = 255;
+      data[k + 3] = Math.round(Math.min(1, density) * 235);
+    }
+  }
+  cloudCache.set(key, data);
+  return data;
+}

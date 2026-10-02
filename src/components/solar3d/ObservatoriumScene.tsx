@@ -8,6 +8,7 @@ import Atmosphere from '@/components/solar3d/Atmosphere';
 import { PLANETS_3D, type P3D } from '@/components/solar3d/data';
 import { getPlanetTexture } from '@/components/solar3d/textures';
 import { getPlanet, type PlanetHotspot } from '@/lib/planets';
+import { getCloudAlphaTexture } from '@/lib/planet-texture';
 import { getGraphicsProfile, type GraphicsQuality } from '@/graphics/graphicsConfig';
 
 const DEG = Math.PI / 180;
@@ -32,11 +33,31 @@ function RingPath({ radius, segments }: { radius: number; segments: number }) {
   return <primitive object={new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color: '#9b8f7a', transparent: true, opacity: 0.3 }))} />;
 }
 
-function SaturnRings({ size }: { size: number }) {
+/** Cincin Saturnus. `castShadow` hanya diaktifkan di mode High (ringShadow), lingkup sengaja dibatasi ke Saturnus saja agar aman & murah. */
+function SaturnRings({ size, castShadow }: { size: number; castShadow: boolean }) {
   return (
-    <mesh rotation-x={Math.PI / 2.25}>
+    <mesh rotation-x={Math.PI / 2.25} castShadow={castShadow}>
       <ringGeometry args={[size * 1.35, size * 2.2, 64]} />
       <meshStandardMaterial color="#e8d5a3" side={THREE.DoubleSide} transparent opacity={0.85} roughness={1} />
+    </mesh>
+  );
+}
+
+/** Lapisan awan Bumi — mesh terpisah, berputar lebih cepat dari permukaan supaya terlihat "bergerak sendiri". Hanya Normal/High. */
+function CloudLayer({ size, opacity }: { size: number; opacity: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const texture = useMemo(() => {
+    const raw = getCloudAlphaTexture();
+    const t = new THREE.DataTexture(new Uint8Array(raw), 512, 256, THREE.RGBAFormat);
+    t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.needsUpdate = true;
+    return t;
+  }, []);
+  useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * 0.045; });
+  return (
+    <mesh ref={ref} scale={1.012}>
+      <sphereGeometry args={[size, 40, 40]} />
+      <meshStandardMaterial map={texture} transparent opacity={opacity} depthWrite={false} roughness={1} />
     </mesh>
   );
 }
@@ -51,6 +72,8 @@ function Body({ p, focus, onPick, worldRef }: { p: P3D; focus: FocusState; onPic
   const rough = p.id === 'saturnus' || p.id === 'jupiter' ? 0.55 : p.id === 'uranus' || p.id === 'neptunus' ? 0.4 : 0.85;
   const isFocused = focus.id === p.id;
   const frozen = isFocused && !focus.showOrbit;
+  const isEarth = p.id === 'bumi';
+  const isSaturn = p.id === 'saturnus';
 
   useFrame((_, delta) => {
     if (focus.running && !frozen) angle.current += delta * p.speed * 0.3;
@@ -65,13 +88,15 @@ function Body({ p, focus, onPick, worldRef }: { p: P3D; focus: FocusState; onPic
       <group ref={worldGroup} position={[p.distance, 0, 0]} rotation-z={p.tilt ?? 0}>
         <mesh
           ref={spinRef}
+          receiveShadow={isSaturn && focus.profile.ringShadow}
           onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onPick(p.id, worldGroup.current!); }}
         >
           <sphereGeometry args={[p.size, isFocused ? focus.profile.planetSegments.near : focus.profile.planetSegments.far, isFocused ? focus.profile.planetSegments.near : focus.profile.planetSegments.far]} />
-          <meshStandardMaterial map={texture} roughness={rough} metalness={0.04} emissive={p.color} emissiveIntensity={isFocused ? 0.16 : 0.04} />
+          <meshStandardMaterial map={texture} roughness={rough} metalness={0.04} emissive={p.color} emissiveIntensity={isFocused ? 0.16 : focus.profile.emissiveBase} />
         </mesh>
-        {focus.profile.atmosphere && <Atmosphere size={p.size} color={p.color} opacity={(p.id === 'bumi' ? 0.24 : 0.13) * focus.profile.atmosphereBoost} />}
-        {p.rings && <SaturnRings size={p.size} />}
+        <Atmosphere size={p.size} color={p.color} layers={focus.profile.atmosphereLayers} opacity={(isEarth ? 0.24 : 0.13) * focus.profile.atmosphereOpacityMul} />
+        {isEarth && focus.profile.cloudLayer && <CloudLayer size={p.size} opacity={focus.profile.cloudOpacity} />}
+        {p.rings && <SaturnRings size={p.size} castShadow={focus.profile.ringShadow} />}
 
         {isFocused && info.hotspots.map((h) => {
           const pos = latLonToVec3(h.lat, h.lon, p.size * 1.03);
@@ -93,32 +118,46 @@ function Body({ p, focus, onPick, worldRef }: { p: P3D; focus: FocusState; onPic
   );
 }
 
-function Sun({ onPick, segments }: { onPick: (id: string, world: THREE.Object3D) => void; segments: number }) {
+function Sun({ onPick, segments, intensity, glowLayers, castShadow }: {
+  onPick: (id: string, world: THREE.Object3D) => void; segments: number; intensity: number;
+  glowLayers: { scale: number; opacity: number }[]; castShadow: boolean;
+}) {
   const ref = useRef<THREE.Mesh>(null);
   const group = useRef<THREE.Group>(null);
   const texture = useMemo(() => getPlanetTexture('matahari'), []);
   useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * 0.05; });
   return (
     <group ref={group}>
-      <pointLight color="#fff3b0" intensity={260} distance={70} decay={1.6} />
+      <pointLight color="#fff3b0" intensity={intensity} distance={70} decay={1.6} castShadow={castShadow} shadow-mapSize={[512, 512]} shadow-bias={-0.0015} />
       <mesh ref={ref} onClick={(e) => { e.stopPropagation(); onPick('matahari', group.current!); }}>
         <sphereGeometry args={[1.7, segments, segments]} />
         <meshBasicMaterial map={texture} />
       </mesh>
-      <mesh scale={2.4}><sphereGeometry args={[1.7, 24, 24]} /><meshBasicMaterial color="#ffb300" transparent opacity={0.16} /></mesh>
+      {/* Bloom palsu murah: beberapa lapis bola aditif transparan — lebih banyak & lebih terang di mode High. */}
+      {glowLayers.map((g, i) => (
+        <mesh key={i} scale={g.scale}><sphereGeometry args={[1.7, 24, 24]} /><meshBasicMaterial color="#ffb300" transparent opacity={g.opacity} depthWrite={false} /></mesh>
+      ))}
     </group>
   );
 }
 
+/** Cahaya pengisi lembut dari arah berlawanan Matahari — menonjolkan sisi gelap planet tetap terlihat, memberi kesan "lebih dimensional" di mode High. */
+function RimFillLight({ intensity }: { intensity: number }) {
+  if (intensity <= 0) return null;
+  return <directionalLight color="#88aaff" intensity={intensity} position={[-10, -4, -14]} />;
+}
+
 /** Kamera bebas: terbang halus ke target saat memilih planet, lalu OrbitControls bebas di sekitarnya. */
-function CameraRig({ target, distance, controlsRef, reduceMotion }: { target: THREE.Object3D | null; distance: number; controlsRef: React.RefObject<any>; reduceMotion: boolean }) {
+function CameraRig({ target, distance, controlsRef, reduceMotion, lerp }: {
+  target: THREE.Object3D | null; distance: number; controlsRef: React.RefObject<any>; reduceMotion: boolean; lerp: { pos: number; look: number };
+}) {
   const { camera } = useThree();
   const desired = useRef(new THREE.Vector3());
   const lookAt = useRef(new THREE.Vector3(0, 0, 0));
   // Siswa dengan "kurangi gerakan" diaktifkan: pindah kamera langsung (tanpa easing
   // panjang) supaya tidak ada gerakan lambat berkepanjangan yang bisa memicu pusing.
-  const camLerp = reduceMotion ? 1 : 0.05;
-  const lookLerp = reduceMotion ? 1 : 0.06;
+  const camLerp = reduceMotion ? 1 : lerp.pos;
+  const lookLerp = reduceMotion ? 1 : lerp.look;
 
   useFrame(() => {
     const controls = controlsRef.current;
@@ -150,8 +189,6 @@ function FitOverview({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) return;
     const aspect = size.width / Math.max(1, size.height);
-    // Makin lebar layarnya, makin dekat kamera ditarik, supaya tata surya
-    // tetap memenuhi bingkai alih-alih makin "tenggelam" di tengah.
     const distance = 13 / (0.55 + 0.45 * Math.max(0.6, Math.min(aspect, 2.6)));
     camera.position.set(0, distance * 0.42, distance);
     camera.lookAt(0, 0, 0);
@@ -179,15 +216,18 @@ export default function ObservatoriumScene({ focusId, showOrbit, running, active
   const focus: FocusState = { id: focusId, showOrbit, running, onHotspot, activeHotspot, profile };
 
   return (
-    <Canvas dpr={profile.dpr} camera={{ position: [0, 6, 14], fov: 50 }} gl={{ antialias: profile.antialias, alpha: true }}>
+    <Canvas dpr={profile.dpr} shadows={profile.ringShadow} camera={{ position: [0, 6, 14], fov: 50 }} gl={{ antialias: profile.antialias, alpha: true }}>
       {showStats && <Stats className="!absolute !left-2 !top-2" />}
-      <ambientLight intensity={0.35} />
+      <ambientLight intensity={profile.ambientIntensity} />
+      <RimFillLight intensity={profile.rimLightIntensity} />
       <Stars radius={100} depth={50} count={profile.stars.count} factor={profile.stars.factor} saturation={0} fade speed={reduceMotion ? 0 : 0.35} />
-      <group ref={(g) => { sunGroup.current = g; }}><Sun onPick={onPickPlanet} segments={profile.sunSegments} /></group>
+      <group ref={(g) => { sunGroup.current = g; }}>
+        <Sun onPick={onPickPlanet} segments={profile.sunSegments} intensity={profile.sunLightIntensity} glowLayers={profile.sunGlowLayers} castShadow={profile.ringShadow} />
+      </group>
       {PLANETS_3D.map((p) => <RingPath key={`r-${p.id}`} radius={p.distance} segments={profile.orbitLineSegments} />)}
       {PLANETS_3D.map((p) => <Body key={p.id} p={p} focus={focus} onPick={onPickPlanet} worldRef={setWorld} />)}
       <FitOverview active={!focusId} />
-      <CameraRig target={focusObj} distance={distance} controlsRef={controlsRef} reduceMotion={reduceMotion} />
+      <CameraRig target={focusObj} distance={distance} controlsRef={controlsRef} reduceMotion={reduceMotion} lerp={profile.cameraLerp} />
       <OrbitControls ref={controlsRef} enablePan={!focusId} enableZoom minDistance={2.5} maxDistance={45} rotateSpeed={0.55} zoomSpeed={0.7} makeDefault />
     </Canvas>
   );

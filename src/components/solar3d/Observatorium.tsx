@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Orbit, Pause, Play, RotateC
 import PlanetCanvas from '@/components/PlanetCanvas';
 import { PLANETS_3D } from '@/components/solar3d/data';
 import { getPlanet, PLANETS, type PlanetHotspot } from '@/lib/planets';
+import { getGraphicsProfile } from '@/graphics/graphicsConfig';
 import GraphicsSettings from '@/graphics/GraphicsSettings';
 import { useGraphicsQuality } from '@/graphics/useGraphicsQuality';
 
@@ -49,6 +50,24 @@ export default function Observatorium() {
             quality={quality} reduceMotion={reduceMotion} showStats={process.env.NODE_ENV === 'development'}
           />
         )}
+
+      {/* Panel debug — HANYA development, tidak pernah tampil di production */}
+      {process.env.NODE_ENV === 'development' && ready && (() => {
+        const p = getGraphicsProfile(quality);
+        return (
+          <div className="pointer-events-none absolute left-2 top-16 z-20 rounded-lg bg-black/70 p-2 font-mono text-[10px] leading-tight text-lime-300">
+            <p>Quality: {quality}{isAuto ? ' (auto)' : ''}</p>
+            <p>Renderer: WebGL2</p>
+            <p>DPR: {p.dpr[0]}–{p.dpr[1]}</p>
+            <p>Stars: {p.stars.count}</p>
+            <p>Atmosphere: {p.atmosphereLayers} layer(s) ×{p.atmosphereOpacityMul}</p>
+            <p>Cloud: {p.cloudLayer ? `on (${p.cloudOpacity})` : 'off'}</p>
+            <p>Bloom layers: {p.sunGlowLayers.length}</p>
+            <p>Ring shadow: {p.ringShadow ? 'on' : 'off'}</p>
+            <p>Ambient/Rim: {p.ambientIntensity} / {p.rimLightIntensity}</p>
+          </div>
+        );
+      })()}
       </Suspense>
 
       {/* Bilah atas */}
