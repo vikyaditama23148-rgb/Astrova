@@ -1,0 +1,2 @@
+/** Alamat situs eksternal terkait Astrova. Ganti lewat env var, bukan di-hardcode di banyak file. */
+export const OBSERVATORY_SITE_URL = process.env.NEXT_PUBLIC_OBSERVATORY_URL || 'https://astrova-observatory.vercel.app';

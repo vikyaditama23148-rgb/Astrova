@@ -3,11 +3,12 @@
 import dynamic from 'next/dynamic';
 import { Suspense, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ChevronDown, ChevronUp, Loader2, Orbit, Pause, Play, RotateCw } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, ExternalLink, Loader2, Orbit, Pause, Play, RotateCw } from 'lucide-react';
 import PlanetCanvas from '@/components/PlanetCanvas';
 import { PLANETS_3D } from '@/components/solar3d/data';
 import { getPlanet, PLANETS, type PlanetHotspot } from '@/lib/planets';
 import { getGraphicsProfile } from '@/graphics/graphicsConfig';
+import { OBSERVATORY_SITE_URL } from '@/lib/external-sites';
 import GraphicsSettings from '@/graphics/GraphicsSettings';
 import { useGraphicsQuality } from '@/graphics/useGraphicsQuality';
 
@@ -76,6 +77,10 @@ export default function Observatorium() {
           🔭 Observatorium 3D
         </span>
         <div className="pointer-events-auto flex items-center gap-2">
+          <a href={OBSERVATORY_SITE_URL} target="_blank" rel="noopener noreferrer"
+            className="btn btn-ghost btn-sm !hidden !min-h-9 !bg-black/45 backdrop-blur-sm sm:!inline-flex" title="Buka versi performa tinggi di tab baru">
+            <ExternalLink size={15} /> Performa Tinggi
+          </a>
           <GraphicsSettings quality={quality} onChange={setQuality} isAuto={isAuto} />
           <button type="button" onClick={() => setRunning((r) => !r)} aria-pressed={running} className="btn btn-ghost btn-sm !min-h-9 !bg-black/45 backdrop-blur-sm">
             {running ? <><Pause size={15} /> Jeda</> : <><Play size={15} /> Putar</>}
