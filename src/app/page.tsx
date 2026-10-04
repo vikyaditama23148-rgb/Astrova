@@ -9,6 +9,7 @@ import ParallaxStars from '@/components/ParallaxStars';
 import Reveal from '@/components/Reveal';
 import RobotMascot from '@/components/RobotMascot';
 import SolarSystem3D from '@/components/solar3d/SolarSystem3D';
+import ObservatoriumSecretCard from '@/components/home/ObservatoriumSecretCard';
 
 export default function Landing() {
   return (
@@ -53,6 +54,11 @@ export default function Landing() {
 
         <StepsSection />
         <PlanetShowcase />
+        <Reveal delay={0.1}>
+  <section className="mx-auto max-w-5xl px-4 py-10 sm:py-14">
+    <ObservatoriumSecretCard />
+  </section>
+</Reveal>
         <BadgesSection />
 
         {/* CTA AKHIR */}
