@@ -1,62 +1,115 @@
 import Link from 'next/link';
-import ParallaxStars from '@/components/ParallaxStars';
-import Reveal from '@/components/Reveal';
-import SolarSystemHero from '@/components/SolarSystemHero';
+import { BookOpen, HelpCircle, Table2, Users } from 'lucide-react';
+import { Card } from '@/components/admin/ui';
+import { loadResearchData, summarize } from '@/lib/research';
 
-const STEPS = [
-  ['📖', 'Learn', 'Baca kartu cerita bergambar. Boleh didengarkan juga!'],
-  ['🔭', 'Explore', 'Putar planet, geser jam, hitung beratmu di planet lain.'],
-  ['🏆', 'Test', 'Pecahkan misi seru dan kumpulkan bintang!'],
-];
+export const metadata = { title: 'Dashboard' };
 
-export default function Landing() {
+function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div className="space-bg overflow-x-clip">
-      <ParallaxStars />
-      <div className="relative mx-auto flex min-h-dvh max-w-6xl flex-col px-5 py-6">
-        <header className="flex items-center justify-between">
-          <span className="flex items-center gap-2 font-display text-2xl font-semibold"><span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-sun-400 text-xl">🪐</span> Astrova</span>
-          <Link href="/admin/login" className="text-sm text-indigo-200 underline-offset-4 hover:underline">Masuk guru / peneliti</Link>
-        </header>
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+    </div>
+  );
+}
 
-        <main className="grid flex-1 items-center gap-10 py-8 md:grid-cols-[1fr_1fr]">
-          <section>
-            <Reveal immediate><p className="chip mb-4">Akademi Penjelajah • IPAS Kelas V</p></Reveal>
-            <Reveal immediate delay={0.08}>
-              <h1 className="text-5xl font-bold leading-[1.05] sm:text-6xl">Ayo keliling<br /><span className="bg-gradient-to-r from-sun-300 to-sun-500 bg-clip-text text-transparent">Tata Surya!</span></h1>
-            </Reveal>
-            <Reveal immediate delay={0.18}>
-              <p className="mt-5 max-w-xl text-xl leading-relaxed text-indigo-100">Putar planet dengan jarimu, mainkan siang dan malam, lalu tantang dirimu bersama AstroBot.</p>
-            </Reveal>
-            <Reveal immediate delay={0.28} className="mt-8 flex flex-wrap gap-4">
-              <Link href="/login" className="btn btn-primary !min-h-16 !px-8 !text-xl">Mulai menjelajah 🚀</Link>
-              <a href="#cara" className="btn btn-ghost !min-h-16 !px-6">Cara belajarnya</a>
-            </Reveal>
-            <Reveal immediate delay={0.38} className="mt-6 flex flex-wrap gap-2">
-              <span className="chip">🪐 8 planet</span><span className="chip">✨ 3 fase seru</span><span className="chip">⭐ Dapat bintang &amp; lencana</span>
-            </Reveal>
-          </section>
+export default async function Dashboard() {
+  const d = await loadResearchData();
+  const s = summarize(d);
+  const { totals } = s;
 
-          <Reveal immediate delay={0.2} y={0} className="pb-16 sm:pb-12">
-            <SolarSystemHero />
-          </Reveal>
-        </main>
+  const preDone = s.rows.filter((r) => r.pre != null).length;
+  const postDone = s.rows.filter((r) => r.post != null).length;
 
-        <section id="cara" className="pb-14 pt-6" aria-labelledby="cara-h">
-          <Reveal><h2 id="cara-h" className="mb-6 text-center text-3xl font-semibold sm:text-4xl">Tiga langkah jadi Penjelajah</h2></Reveal>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {STEPS.map(([e, t, d], i) => (
-              <Reveal key={t} delay={i * 0.12}>
-                <article className="card-night h-full p-5 transition-transform duration-300 hover:-translate-y-2">
-                  <p className="text-4xl" aria-hidden>{e}</p>
-                  <h3 className="mt-2 text-2xl font-semibold">{t}</h3>
-                  <p className="mt-1 text-lg text-indigo-100/90">{d}</p>
-                </article>
-              </Reveal>
+  const quickLinks = [
+    { href: '/admin/students', label: 'Siswa', icon: Users },
+    { href: '/admin/modules', label: 'Modul', icon: BookOpen },
+    { href: '/admin/questions', label: 'Bank Soal', icon: HelpCircle },
+    { href: '/admin/gradebook', label: 'Buku Nilai', icon: Table2 },
+  ];
+
+  return (
+    <>
+      <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total Siswa" value={totals.students} />
+        <Stat label="Pre-Test Selesai" value={`${preDone}/${totals.students}`} hint={totals.pre != null ? `Rata-rata: ${totals.pre}` : undefined} />
+        <Stat label="Post-Test Selesai" value={`${postDone}/${totals.students}`} hint={totals.post != null ? `Rata-rata: ${totals.post}` : undefined} />
+        <Stat
+          label="Rata-rata N-Gain"
+          value={totals.gain != null ? totals.gain.toFixed(2) : '-'}
+          hint={totals.gain != null ? `Avg. durasi Explore: ${Math.round((totals.exploreAvg ?? 0) / 60)} mnt` : 'Belum ada data'}
+        />
+      </div>
+
+      <Card title="Sebaran Kategori N-Gain">
+        {preDone + postDone > 0 ? (
+          <div className="grid grid-cols-3 gap-4">
+            {(['Tinggi', 'Sedang', 'Rendah'] as const).map((cat) => (
+              <div key={cat} className="rounded-lg bg-slate-50 p-4 text-center">
+                <p className="text-2xl font-bold text-slate-900">{totals.cat[cat]}</p>
+                <p className="text-sm text-slate-500">{cat}</p>
+              </div>
             ))}
           </div>
-        </section>
-      </div>
-    </div>
+        ) : (
+          <p className="text-sm text-slate-500">Belum ada siswa yang menyelesaikan post-test.</p>
+        )}
+      </Card>
+
+      <Card title="Progres per Modul">
+        <div className="space-y-3">
+          {s.byModule.map((m) => {
+            const pct = totals.students ? Math.round((m.completed / totals.students) * 100) : 0;
+            return (
+              <div key={m.id}>
+                <div className="mb-1 flex items-center justify-between text-sm">
+                  <span className="font-medium text-slate-700">{m.title}</span>
+                  <span className="text-slate-500">
+                    {m.completed}/{totals.students} selesai{m.avgScore != null ? ` · rata-rata skor ${m.avgScore}` : ''}
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-indigo-600" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+          {!s.byModule.length && <p className="text-sm text-slate-500">Belum ada modul.</p>}
+        </div>
+      </Card>
+
+      {s.classes.length > 1 && (
+        <Card title="Per Kelas">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b text-slate-500">
+                <tr><th className="py-2">Kelas</th><th>Siswa</th><th>Rata-rata Pre</th><th>Rata-rata Post</th><th>Rata-rata N-Gain</th></tr>
+              </thead>
+              <tbody>
+                {s.classes.map((c) => (
+                  <tr key={c.name} className="border-b border-slate-100">
+                    <td className="py-2 font-medium">{c.name}</td><td>{c.n}</td><td>{c.pre ?? '-'}</td><td>{c.post ?? '-'}</td><td>{c.gain ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      <Card title="Jalan pintas">
+        <div className="flex flex-wrap gap-2">
+          {quickLinks.map(({ href, label, icon: I }) => (
+            <Link key={href} href={href} className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <I size={16} />{label}
+            </Link>
+          ))}
+        </div>
+      </Card>
+    </>
   );
 }
