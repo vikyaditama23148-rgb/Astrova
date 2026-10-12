@@ -18,6 +18,8 @@ create table if not exists profiles (
   pin_code    varchar(10),
   avatar_id   varchar(50) default 'astro-1',
   role        varchar(20) not null default 'student' check (role in ('student','admin')),
+  is_super_admin boolean not null default false,  -- hanya untuk role='admin': boleh kelola akun admin lain
+  is_active      boolean not null default true,   -- admin dinonaktifkan -> is_active=false, tidak bisa login
   created_at  timestamptz not null default now()
 );
 create index if not exists profiles_role_idx on profiles(role);

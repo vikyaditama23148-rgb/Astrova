@@ -1,10 +1,10 @@
 'use server';
 
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { requireAdmin } from '@/lib/admin-auth';
+import { requireAdmin, requireSuperAdmin } from '@/lib/admin-auth';
 import { db } from '@/lib/supabase/admin';
 import { supabaseServer } from '@/lib/supabase/server';
 import { recomputeAll, recomputeUser } from '@/lib/scoring';
@@ -21,10 +21,14 @@ export async function adminLogin(_prev: Result | null, fd: FormData): Promise<Re
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) return fail('Email atau kata sandi salah.');
-  const { data: p } = await db().from('profiles').select('role').eq('id', data.user.id).maybeSingle();
+  const { data: p } = await db().from('profiles').select('role, is_active').eq('id', data.user.id).maybeSingle();
   if (p?.role !== 'admin') {
     await supabase.auth.signOut();
     return fail('Akun ini bukan admin. Jalankan `npm run create-admin` untuk membuat akun admin.');
+  }
+  if (p.is_active === false) {
+    await supabase.auth.signOut();
+    return fail('Akun admin ini telah dinonaktifkan. Hubungi super admin.');
   }
   redirect('/admin');
 }
@@ -326,4 +330,78 @@ export async function deleteMedia(path: string): Promise<Result> {
   if (error) return fail(error.message);
   revalidatePath('/admin/modules');
   return ok('File dihapus.');
+}
+
+/* -------------------------- KELOLA ADMIN --------------------------- */
+// Hanya super admin yang boleh membuat, menonaktifkan, atau mereset kata sandi admin lain.
+// requireSuperAdmin() melempar Error biasa (ditangkap `useRun`) jika pemanggil bukan super admin,
+// jadi aksi-aksi ini aman dipanggil langsung meski seseorang mencoba melewati UI.
+
+const genTempPassword = () => randomBytes(9).toString('base64url'); // ~12 karakter acak, aman
+
+const newAdminSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Email tidak valid.'),
+  full_name: z.string().trim().min(2, 'Nama minimal 2 karakter.').max(100),
+});
+
+/** Buat akun admin baru dengan kata sandi sementara acak (ditampilkan sekali ke super admin). */
+export async function createAdminAccount(input: { email: string; full_name: string }): Promise<Result> {
+  await requireSuperAdmin();
+  const p = newAdminSchema.safeParse(input);
+  if (!p.success) return fail(p.error.issues[0].message);
+
+  const sb = db();
+  const tempPassword = genTempPassword();
+  const { data, error } = await sb.auth.admin.createUser({ email: p.data.email, password: tempPassword, email_confirm: true });
+  if (error) {
+    if (/already|registered|exists/i.test(error.message)) return fail('Email ini sudah terdaftar di sistem.');
+    return fail(error.message);
+  }
+
+  const { error: e2 } = await sb.from('profiles').upsert(
+    { id: data.user.id, full_name: p.data.full_name, role: 'admin', is_super_admin: false, is_active: true },
+    { onConflict: 'id' },
+  );
+  if (e2) return fail(e2.message);
+
+  revalidatePath('/admin/admins');
+  return ok(
+    `Admin "${p.data.full_name}" dibuat. Kata sandi sementara: ${tempPassword} — sampaikan lewat jalur aman (bukan chat publik), dan minta diganti setelah login pertama.`,
+    { tempPassword },
+  );
+}
+
+/** Aktifkan/nonaktifkan akun admin. Admin yang dinonaktifkan tidak bisa login lagi sampai diaktifkan ulang. */
+export async function setAdminActive(targetId: string, active: boolean): Promise<Result> {
+  const me = await requireSuperAdmin();
+  if (targetId === me.id) return fail('Anda tidak bisa menonaktifkan akun Anda sendiri.');
+
+  const sb = db();
+  const { data: target } = await sb.from('profiles').select('role, is_super_admin, full_name').eq('id', targetId).maybeSingle();
+  if (!target || target.role !== 'admin') return fail('Akun admin tidak ditemukan.');
+  if (target.is_super_admin) return fail('Super admin tidak bisa dinonaktifkan.');
+
+  const { error } = await sb.from('profiles').update({ is_active: active }).eq('id', targetId).eq('role', 'admin');
+  if (error) return fail(error.message);
+
+  revalidatePath('/admin/admins');
+  return ok(active ? `Admin "${target.full_name}" diaktifkan kembali.` : `Admin "${target.full_name}" dinonaktifkan — tidak bisa login lagi sampai diaktifkan ulang.`);
+}
+
+/** Reset kata sandi admin manapun (termasuk diri sendiri) ke kata sandi sementara acak baru. */
+export async function resetAdminPassword(targetId: string): Promise<Result> {
+  await requireSuperAdmin();
+  const sb = db();
+  const { data: target } = await sb.from('profiles').select('role, full_name').eq('id', targetId).maybeSingle();
+  if (!target || target.role !== 'admin') return fail('Akun admin tidak ditemukan.');
+
+  const tempPassword = genTempPassword();
+  const { error } = await sb.auth.admin.updateUserById(targetId, { password: tempPassword });
+  if (error) return fail(error.message);
+
+  revalidatePath('/admin/admins');
+  return ok(
+    `Kata sandi "${target.full_name}" direset. Kata sandi sementara: ${tempPassword} — sampaikan lewat jalur aman, lalu minta diganti setelah login berikutnya.`,
+    { tempPassword },
+  );
 }
