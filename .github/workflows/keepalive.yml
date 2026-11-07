@@ -1,0 +1,35 @@
+name: Keep Supabase awake
+
+# Cadangan untuk Vercel Cron. Memanggil /api/keepalive tiap hari agar database
+# Supabase (paket gratis) tidak dijeda setelah 1 minggu tanpa aktivitas.
+#
+# Secret yang harus diisi di GitHub: Settings → Secrets and variables → Actions
+#   KEEPALIVE_URL  contoh: https://astrova-two.vercel.app
+#   CRON_SECRET    harus SAMA dengan CRON_SECRET di Environment Variables Vercel
+
+on:
+  schedule:
+    - cron: '17 2 * * *' # 02:17 UTC = 09:17 WIB
+  workflow_dispatch: # tombol "Run workflow" untuk uji manual
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/keepalive
+        env:
+          KEEPALIVE_URL: ${{ secrets.KEEPALIVE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEEPALIVE_URL:-}" ] || [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Secret KEEPALIVE_URL dan/atau CRON_SECRET belum diisi di GitHub."
+            exit 1
+          fi
+          curl --fail-with-body -sS --retry 3 --retry-delay 15 --retry-all-errors --max-time 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${KEEPALIVE_URL%/}/api/keepalive"
+          echo
